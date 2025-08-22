@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Daily Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg: #0b0d12;
+      --card:#10131aA6; /* glass */
+      --txt:#0b0d12;
+      --fg:#e9eef8;
+      --muted:#b9c1d3;
+      --accent:#6ea8ff;
+      --ring:#ffffff22;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background: radial-gradient(1200px 600px at 20% -10%, #1a2030 0%, #0c0f17 60%, #07090f 100%);
+      color:var(--fg);
+      letter-spacing:0.2px;
+    }
+    .wrap{max-width:1200px; margin:32px auto; padding:0 16px}
+    header{display:flex; justify-content:space-between; align-items:center; margin-bottom:20px}
+    .title{font-weight:800; font-size:28px}
+
+    .grid{display:grid; grid-template-columns:repeat(12, 1fr); gap:18px}
+    .card{
+      grid-column:span 12;
+      background:linear-gradient(180deg, #10131aCC, #0d1118CC);
+      border:1px solid #ffffff12;
+      backdrop-filter: blur(18px) saturate(130%);
+      -webkit-backdrop-filter: blur(18px) saturate(130%);
+      border-radius:22px; padding:20px 22px; position:relative; overflow:hidden;
+      box-shadow: 0 10px 30px #00000066, inset 0 1px 0 #ffffff12;
+    }
+    .card::after{content:""; position:absolute; inset:-40% -10% auto auto; width:60%; height:60%; background: radial-gradient(400px 180px at right top, #8ab4ff22, transparent 60%); pointer-events:none}
+    .card h2{margin:0 0 10px 0; font-size:22px}
+    .muted{color:var(--muted)}
+
+    /* Responsive spans */
+    @media (min-width: 880px){
+      .span-7{grid-column:span 7}
+      .span-5{grid-column:span 5}
+      .span-6{grid-column:span 6}
+      .span-4{grid-column:span 4}
+    }
+
+    /* Chips & buttons */
+    .chips{display:flex; gap:12px; flex-wrap:wrap; margin-top:6px}
+    .chip{padding:8px 14px; border-radius:16px; background:#ffffff0f; border:1px solid #ffffff12; cursor:pointer; user-select:none}
+    .chip.active{outline:2px solid #8ab4ff66}
+    .btn{appearance:none; border:1px solid #ffffff1c; background:#ffffff12; color:var(--fg); padding:10px 12px; border-radius:14px; cursor:pointer; backdrop-filter: blur(6px);}
+    .btn:focus{outline:2px solid var(--accent)}
+    .btn.primary{background:linear-gradient(180deg,#6ea8ff,#4b74ff); border:0}
+    input,textarea{width:100%; padding:12px 14px; border-radius:14px; border:1px solid #ffffff1c; background:#0d1118; color:var(--fg)}
+
+    /* Weather */
+    .weather-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px}
+    .wx-main{display:flex; align-items:flex-end; gap:18px; margin-top:6px}
+    .wx-temp{font-size:64px; font-weight:800}
+    .wx-desc{font-size:18px; color:var(--muted)}
+    .wx-pills{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px}
+    .pill{padding:8px 12px; border-radius:999px; background:#ffffff10; border:1px solid #ffffff1a}
+    .days{display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-top:14px}
+    .day{background:#ffffff0c; border:1px solid #ffffff1a; border-radius:16px; padding:10px; text-align:center}
+    .day .hi{font-weight:700}
+
+    /* News */
+    .news-list{display:grid; gap:10px; margin-top:8px}
+    .news-item{padding:12px; border:1px solid #ffffff1a; border-radius:12px; background:#ffffff08}
+
+    /* Stocks */
+    .row{display:flex; gap:10px; flex-wrap:wrap}
+    .stock-input{flex:1}
+
+    /* Chat */
+    .chat-box{height:260px; overflow:auto; border:1px solid #ffffff1a; border-radius:14px; padding:12px; background:#0d1118}
+    .msg{margin:0 0 12px}
+    .msg.me{color:#cfe1ff}
+    .msg.bot{color:#e8f0ff}
+
+    /* Bookmarks CSS */
+    .bm-wrap {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .bm {
+        padding: 9px 12px;
+        border-radius: 12px;
+        background: #ffffff10;
+        border: 1px solid #ffffff22;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+    }
+    .bm a {
+        color: var(--fg, #fff);
+        text-decoration: none;
+    }
+    .x {
+        opacity: .7;
+        cursor: pointer;
+        font-weight: 700;
+    }
+</style>
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">Daily Dashboard</div>
+      <div class="muted" id="today"></div>
+    </header>
+
+    <div class="grid">
+  <!-- WEATHER (no key, Open-Meteo) -->
+<section class="card span-12" id="weatherCard" style="width:100%; max-width:100%;">
+    <div class="weather-head">
+      <h2>Weather</h2>
+      <div class="row" style="gap:8px">
+        <input id="place" value="" placeholder="Search city (e.g., Kuwait, KW)" style="width:220px" />
+        <button class="btn" id="useGeo">Use my location</button>
+      </div>
+    </div>
+    <div class="wx-main">
+      <div class="wx-temp" id="wxTemp">--°</div>
+      <div>
+        <div style="font-size:18px; font-weight:600" id="wxWhere">—</div>
+        <div class="wx-desc" id="wxDesc">—</div>
+        <div class="wx-pills">
+          <div class="pill" id="wxFeels">Feels —</div>
+          <div class="pill" id="wxHum">Humidity —</div>
+          <div class="pill" id="wxSun">Sunrise — • Sunset —</div>
+        </div>
+      </div>
+    </div>
+    <div class="days" id="wxDays"></div>
+</section>
+
+    <div class="days" id="wxDays"></div>
+  </section>
+</div>
+
+
+      <!-- NEWS via OpenAI (headlines + chips) -->
+      <section class="card span-5">
+        <div style="display:flex; justify-content:space-between; align-items:center">
+          <h2>Top News</h2>
+          <div class="chips">
+            <div class="chip active" data-topic="Top">Top</div>
+            <div class="chip" data-topic="Tech">Tech</div>
+            <div class="chip" data-topic="AI">AI</div>
+          </div>
+        </div>
+        <div class="muted" style="margin-top:4px">Powered by OpenAI: asks for fresh headlines every time.</div>
+        <div class="news-list" id="newsList"></div>
+      </section>
+
+      <!-- STOCKS -->
+      <section class="card span-7">
+        <div style="display:flex; justify-content:space-between; align-items:center">
+          <h2>Stocks</h2>
+          <div class="row" style="align-items:center">
+            <input class="stock-input" id="stockSymbol" placeholder="Symbol (e.g., AAPL, MSFT, TSLA)"/>
+            <button class="btn primary" id="loadStock">Load</button>
+          </div>
+        </div>
+        <canvas id="stockChart" height="120" style="margin-top:10px"></canvas>
+        <div class="muted" style="margin-top:8px">Source: Alpha Vantage Stocks</div>
+      </section>
+
+      <!-- CHATBOT -->
+      <section class="card span-5">
+        <h2>Daily Updates Chatbot</h2>
+        <div class="chat-box" id="chat"></div>
+        <div class="row">
+          <textarea id="prompt" rows="3" placeholder="Ask for quick daily updates (markets, weather, sports, tech)…"></textarea>
+          <button id="send" 
+  style="display:block; width:100%; margin:10px auto; text-align:center; padding:12px; border:none; border-radius:10px; background:#4a90e2; color:white; font-size:16px; cursor:pointer;">
+  Send
+</button>
+        </div>
+      </section>
+
+     <!-- BOOKMARKS -->
+<section class="card span-12" style="padding:15px; background:#; border-radius:12px;">
+    <h2 style="margin-bottom:15px; text-align:center;">Bookmarks</h2>
+    
+    <div class="bm-inputs" style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px; align-items:center;">
+        <input id="bmName" placeholder="Label (e.g., Mail)" style="width:80%; max-width:300px; padding:8px; border-radius:8px; border:none;">
+        <input id="bmUrl" placeholder="https://example.com" style="width:80%; max-width:500px; padding:8px; border-radius:8px; border:none;">
+        <button id="bmAdd" 
+  style="display:block; width:100%; margin:10px auto; text-align:center; padding:12px; border:none; border-radius:10px; background:#4a90e2; color:white; font-size:16px; cursor:pointer;">
+  Add
+</button>
+    
+    <div class="bm-wrap" id="bmWrap" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
+</section>
+
+  </div>
+
+  <script>
+    // ================== API KEYS (EDIT HERE) ==================
+    // OpenAI: used for News headlines and the Chatbot
+    const OPENAI_API_KEY = "YOUR_OPENAI_API_KEY_HERE"; // e.g., sk-...
+
+    // Alpha Vantage: used for stock prices (https://www.alphavantage.co)
+    const ALPHA_VANTAGE_KEY = "YOUR_ALPHA_VANTAGE_KEY_HERE";
+    // ==========================================================
+
+    // Today
+    document.getElementById('today').textContent = new Date().toLocaleString(undefined, {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+    // ============ WEATHER (Open-Meteo, no key) ============
+    const placeEl = document.getElementById('place');
+    const daysEl = document.getElementById('wxDays');
+    async function geocode(query){
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`;
+      const r = await fetch(url); if(!r.ok) throw new Error('Geocoding failed');
+      const j = await r.json();
+      if(!j.results || !j.results.length) throw new Error('No match');
+      const g = j.results[0];
+      return {lat:g.latitude, lon:g.longitude, name:`${g.name}${g.admin1? ', '+g.admin1:''}, ${g.country_code}`};
+    }
+    async function getWeather(lat, lon){
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code&hourly=apparent_temperature&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto`;
+      const r = await fetch(url); if(!r.ok) throw new Error('Weather failed');
+      return r.json();
+    }
+    function codeToText(code){
+      // Minimal mapper for clarity
+      const map={0:'Clear',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',48:'Rime fog',51:'Drizzle',53:'Drizzle',55:'Drizzle',61:'Rain',63:'Rain',65:'Rain',71:'Snow',73:'Snow',75:'Snow',80:'Showers',81:'Showers',82:'Showers',95:'Thunderstorm'};
+      return map[code]||'—';
+    }
+   async function renderWeatherByQuery(q){
+  try{
+    const g = await geocode(q);
+    await renderWeather(g);
+  }catch(e){ 
+    // Removed alert
+    console.warn('Place not found:', e.message);
+  }
+}
+    async function renderWeather(geo){
+      const data = await getWeather(geo.lat, geo.lon);
+      const c = data.current;
+      document.getElementById('wxWhere').textContent = geo.name;
+      document.getElementById('wxTemp').textContent = Math.round(c.temperature_2m)+"°";
+      document.getElementById('wxDesc').textContent = codeToText(c.weather_code);
+      document.getElementById('wxFeels').textContent = `Feels like ${Math.round(c.apparent_temperature)}°`;
+      document.getElementById('wxHum').textContent = `Humidity ${Math.round(c.relative_humidity_2m)}%`;
+      const sr = data.daily.sunrise[0].split('T')[1];
+      const ss = data.daily.sunset[0].split('T')[1];
+      document.getElementById('wxSun').textContent = `Sunrise ${sr} • Sunset ${ss}`;
+      // days
+      daysEl.innerHTML='';
+      for(let i=0;i<5;i++){
+        const d = new Date(data.daily.time[i]);
+        const el = document.createElement('div'); el.className='day';
+        el.innerHTML = `<div style="font-weight:700">${d.toLocaleDateString(undefined,{weekday:'short'})}</div>
+          <div class="muted" style="margin:2px 0">${codeToText(data.daily.weather_code[i])}</div>
+          <div><span class="hi">${Math.round(data.daily.temperature_2m_max[i])}°</span> / ${Math.round(data.daily.temperature_2m_min[i])}°</div>`;
+        daysEl.appendChild(el);
+      }
+    }
+    // Default: try geolocation, else Kuwait, KW
+    document.getElementById('useGeo').addEventListener('click',()=>{
+      navigator.geolocation.getCurrentPosition(async pos=>{
+        const {latitude:lat, longitude:lon} = pos.coords;
+        const url = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&language=en`;
+        const r = await fetch(url); const j = await r.json();
+        const name = (j && j.results && j.results[0]) ? `${j.results[0].name}, ${j.results[0].country_code}` : `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+        renderWeather({lat, lon, name});
+      }, ()=>renderWeatherByQuery('Kuwait, KW'));
+    });
+    placeEl.addEventListener('keydown', e=>{ if(e.key==='Enter'){ renderWeatherByQuery(placeEl.value.trim()); }});
+    // Initial
+    renderWeatherByQuery('Kuwait, KW');
+
+    // ============ NEWS via OpenAI ============
+    const chips = document.querySelectorAll('.chip');
+    const newsList = document.getElementById('newsList');
+    chips.forEach(c=>c.addEventListener('click',()=>{ chips.forEach(x=>x.classList.remove('active')); c.classList.add('active'); loadHeadlines(c.dataset.topic);}));
+
+    async function openAI(messages){
+      if(!OPENAI_API_KEY || OPENAI_API_KEY.includes('PASTE_')){ newsList.innerHTML='<div class="muted">Set your OpenAI API key in the code to load news & chatbot.</div>'; throw new Error('No OpenAI key'); }
+      const r = await fetch('https://api.openai.com/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${OPENAI_API_KEY}`},
+        body: JSON.stringify({
+          model:'gpt-4o-mini',
+          temperature:0.6,
+          messages
+        })
+      });
+      if(!r.ok){ const t = await r.text(); throw new Error(t); }
+      const j = await r.json();
+      return j.choices[0].message.content.trim();
+    }
+
+    async function loadHeadlines(topic='Top'){
+      newsList.innerHTML = '<div class="muted">Fetching headlines…</div>';
+      try{
+        const content = await openAI([
+          {role:'system', content:'You are a concise news editor. Return 5 fresh headlines that are current ande new intresting news with <title> – <one short line why it matters>. No markdown bullets, one per line and never use icons or markdown, just text'},
+          {role:'user', content:`Give ${topic} headlines relevant globally. Keep each under 110 characters.`}
+        ]);
+        newsList.innerHTML = '';
+        content.split(/\n+/).slice(0,5).forEach(line=>{
+          const div = document.createElement('div'); div.className='news-item'; div.textContent = line.replace(/^[-•\d\.\s]+/,'');
+          newsList.appendChild(div);
+        });
+      }catch(e){ newsList.innerHTML = `<div class="muted">${e.message}</div>`; }
+    }
+    loadHeadlines('AI');
+
+    // ============ STOCKS (Alpha Vantage) ============
+    let chart;
+    async function loadStock(sym){
+      const outEl = document.getElementById('stockChart');
+      if(!ALPHA_VANTAGE_KEY || ALPHA_VANTAGE_KEY.includes('PASTE_')){
+        const demo = demoSeries();
+        renderChart(demo.labels, demo.values, `${sym || 'DEMO'} (sample)`);
+        return;
+      }
+      const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol=${encodeURIComponent(sym)}&outputsize=compact&apikey=${ALPHA_VANTAGE_KEY}`;
+      const r = await fetch(url); const j = await r.json();
+      const series = j['Time Series (Daily)'];
+      if(!series){
+        renderChart(demoSeries().labels, demoSeries().values, `${sym} (no data)`);
+        return;
+      }
+      const labels = Object.keys(series).sort().map(d=>d.slice(5));
+      const values = Object.entries(series).sort(([a],[b])=>a.localeCompare(b)).map(([_,v])=>Number(v['4. close']));
+      renderChart(labels, values, sym.toUpperCase());
+    }
+    function demoSeries(){
+      const labels=[]; const values=[]; let v=100;
+      for(let i=60;i>0;i--){ labels.push(new Date(Date.now()-i*86400000).toLocaleDateString(undefined,{month:'2-digit', day:'2-digit'})); v += (Math.random()-.5)*2; values.push(Number(v.toFixed(2))); }
+      return {labels, values};
+    }
+    function renderChart(labels, values, label){
+      const ctx = document.getElementById('stockChart');
+      if(chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type:'line',
+        data:{ labels, datasets:[{ label, data: values, tension:.35, borderWidth:2, pointRadius:0, fill:true, backgroundColor:'rgba(110,168,255,0.12)', borderColor:'rgba(160,200,255,0.95)'}] },
+        options:{
+          plugins:{ legend:{display:false}},
+          scales:{
+            x:{ grid:{color:'#ffffff12'}, ticks:{color:'#b9c1d3'}},
+            y:{ grid:{color:'#ffffff12'}, ticks:{color:'#b9c1d3'}},
+          }
+        }
+      });
+    }
+    document.getElementById('loadStock').addEventListener('click',()=>{
+      const sym = document.getElementById('stockSymbol').value.trim() || 'AAPL';
+      loadStock(sym);
+    });
+    loadStock('AAPL');
+
+    // ============ CHATBOT (OpenAI) ============
+    const chat = document.getElementById('chat');
+    const promptEl = document.getElementById('prompt');
+    const sendBtn = document.getElementById('send');
+    const chatHistory = [
+      {role:'system', content:'You are a brisk daily-brief assistant. Prioritize today\'s key items across markets, tech, geopolitics, weather, and sports. Use bullet-like short lines. Include no emojis. Keep answers under 500 characters and never use markdown.'}
+    ];
+    function pushMsg(role, text){
+      const p = document.createElement('p'); p.className = 'msg '+(role==='user'?'me':'bot'); p.textContent = text; chat.appendChild(p); chat.scrollTop = chat.scrollHeight;
+    }
+    sendBtn.addEventListener('click', async ()=>{
+      const q = promptEl.value.trim(); if(!q) return;
+      pushMsg('user', q); promptEl.value='';
+      try{
+        const reply = await openAI([...chatHistory, {role:'user', content:q}]);
+        chatHistory.push({role:'user', content:q}); chatHistory.push({role:'assistant', content:reply});
+        pushMsg('assistant', reply);
+      }catch(e){ pushMsg('assistant', 'Set your OpenAI API key in the code to enable chat.'); }
+    });
+
+    // ============ BOOKMARKS (localStorage) ============
+    const bmWrap = document.getElementById('bmWrap');
+    const bmAdd = document.getElementById('bmAdd');
+    function readBM(){ try{return JSON.parse(localStorage.getItem('dd.bookmarks')||'[]')}catch{ return []} }
+    function writeBM(arr){ localStorage.setItem('dd.bookmarks', JSON.stringify(arr)); }
+    function renderBM(){ bmWrap.innerHTML=''; const arr = readBM(); arr.forEach((b,i)=>{
+      const d = document.createElement('div'); d.className='bm';
+      d.innerHTML = `<a href="${b.url}" target="_blank" rel="noopener">${b.name}</a> <span class="x" title="Remove" data-i="${i}">×</span>`;
+      bmWrap.appendChild(d);
+    });
+    document.querySelectorAll('.x').forEach(x=>x.addEventListener('click', rmBM));
+    }
+    function rmBM(e){ const i = Number(e.target.getAttribute('data-i')); const arr = readBM(); arr.splice(i,1); writeBM(arr); renderBM(); }
+    bmAdd.addEventListener('click',()=>{
+      const name = document.getElementById('bmName').value.trim();
+      const url = document.getElementById('bmUrl').value.trim();
+      if(!name||!url) return; const arr = readBM(); arr.push({name,url}); writeBM(arr); document.getElementById('bmName').value=''; document.getElementById('bmUrl').value=''; renderBM();
+    });
+    renderBM();
+  </script>
+</body>
+</html>
